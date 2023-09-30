@@ -1,8 +1,5 @@
 const path = require('path')
-const multer = require('multer')
-const { v4: uuidv4 } = require('uuid');
 const express = require('express');
-const mongoose = require('mongoose');
 const cookieSession = require('cookie-session');
 const passport = require('passport');
 const bodyParser = require('body-parser');
@@ -11,27 +8,11 @@ const keys = require('./config/keys');
 require('./models/User');
 require('./models/Blog');
 require('./services/passport');
+require('./services/cache');
 
 
 const app = express();
 
-const fileStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'images');
-    },
-    filename: (req, file, cb) => {
-        cb(null, uuidv4());
-    }
-})
-const fileFilter = (req, file, cb) => {
-    if(file.mimetype === 'image/png' || file.mimetype === 'image/jpg' || file.mimetype === 'image/jpeg'){
-        cb(null, true);
-    }else {
-        cb(null, false);
-    }
-}
-
-// app.use(bodyParser.urlencoded()); // x-www-form-urlencoded <form>
 app.use(bodyParser.json()); // application/json
 app.use(
     cookieSession({
@@ -41,8 +22,6 @@ app.use(
   );
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(multer({ storage: fileStorage, fileFilter: fileFilter}).single('image'))
-app.use('/images', express.static(path.join(__dirname, 'images')));
 
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -53,6 +32,7 @@ app.use((req, res, next) => {
 
 require('./routes/authRoutes')(app);
 require('./routes/blogRoutes')(app);
+require('./routes/uploadRoutes')(app);
 
 if (['production'].includes(process.env.NODE_ENV)) {
     app.use(express.static('client/build'));
