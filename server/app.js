@@ -1,11 +1,17 @@
 const path = require('path')
-const express = require('express');
-const bodyParser = require('body-parser');
 const multer = require('multer')
 const { v4: uuidv4 } = require('uuid');
+const express = require('express');
+const mongoose = require('mongoose');
+const cookieSession = require('cookie-session');
+const passport = require('passport');
+const bodyParser = require('body-parser');
+const keys = require('./config/keys');
 
-const feedRoutes = require('./routes/feed');
-const authRoutes = require('./routes/auth');
+require('./models/User');
+require('./models/Blog');
+require('./services/passport');
+
 
 const app = express();
 
@@ -27,6 +33,14 @@ const fileFilter = (req, file, cb) => {
 
 // app.use(bodyParser.urlencoded()); // x-www-form-urlencoded <form>
 app.use(bodyParser.json()); // application/json
+app.use(
+    cookieSession({
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      keys: [keys.cookieKey]
+    })
+  );
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(multer({ storage: fileStorage, fileFilter: fileFilter}).single('image'))
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
@@ -37,8 +51,17 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use('api/feed', feedRoutes);
-app.use('api/auth', authRoutes);
+require('./routes/authRoutes')(app);
+require('./routes/blogRoutes')(app);
+
+if (['production'].includes(process.env.NODE_ENV)) {
+    app.use(express.static('client/build'));
+  
+    const path = require('path');
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve('client', 'build', 'index.html'));
+    });
+  }
 
 app.use((err, req, res, next) => {
     console.log(err);
